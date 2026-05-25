@@ -449,25 +449,20 @@
     </div>
 
     <div class="form-group">
-      <label class="form-label" for="cfgEndpoint">Endpoint do Azure AI Foundry</label>
-      <input class="form-input" type="url" id="cfgEndpoint"
-        placeholder="https://seu-resource.services.ai.azure.com/openai/v1" />
-      <div class="form-hint">Encontrado em <b>Settings → Keys and Endpoint</b> no portal.</div>
+      <label class="form-label">Modelo</label>
+      <div style="background:var(--bg);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;font-family:var(--font-mono);color:var(--text-muted);">
+        gpt-4.1-mini &nbsp;·&nbsp; Azure AI Foundry SENAI
+      </div>
+      <div class="form-hint">Endpoint configurado pelo administrador.</div>
     </div>
 
     <div class="form-group">
-      <label class="form-label" for="cfgDeployment">Nome do Deployment (modelo)</label>
-      <input class="form-input" type="text" id="cfgDeployment"
-        placeholder="gpt-4.1-mini" value="gpt-4.1-mini" />
-    </div>
-
-    <div class="form-group">
-      <label class="form-label" for="cfgKey">API Key</label>
+      <label class="form-label" for="cfgKey">Sua API Key</label>
       <input class="form-input" type="password" id="cfgKey"
         placeholder="••••••••••••••••••••••••••••••••" />
       <div class="form-hint">
-        <a href="https://ai.azure.com" target="_blank" rel="noopener">Portal Azure AI Foundry</a>
-        → seu projeto → Settings → Keys and Endpoint → copie a Key 1.
+        Acesse o <a href="https://ai.azure.com" target="_blank" rel="noopener">Portal Azure AI Foundry</a>
+        → seu projeto → <b>Settings → Keys and Endpoint</b> → copie a Key 1 ou Key 2.
       </div>
     </div>
 
@@ -529,7 +524,12 @@
 
 <script>
   /* ── State ───────────────────────────────────────── */
-  let config = { endpoint: '', deployment: 'gpt-4.1-mini', apiKey: '', systemPrompt: '' };
+  // ✏️ ALTERE AQUI o seu endpoint e deployment fixos:
+  const FIXED_ENDPOINT   = 'https://ai-foundry-senai-resource.services.ai.azure.com/openai/v1';
+  const FIXED_DEPLOYMENT = 'gpt-4.1-mini';
+  const API_VERSION      = '2025-01-01-preview';
+
+  let config = { apiKey: '', systemPrompt: '' };
   let history = [];
   let isLoading = false;
 
@@ -539,8 +539,6 @@
   const btnCloseModal   = document.getElementById('btnCloseModal');
   const btnCancelModal  = document.getElementById('btnCancelModal');
   const btnSaveConfig   = document.getElementById('btnSaveConfig');
-  const cfgEndpoint     = document.getElementById('cfgEndpoint');
-  const cfgDeployment   = document.getElementById('cfgDeployment');
   const cfgKey          = document.getElementById('cfgKey');
   const cfgSystem       = document.getElementById('cfgSystem');
   const statusDot       = document.getElementById('statusDot');
@@ -555,10 +553,8 @@
 
   /* ── Modal ───────────────────────────────────────── */
   function openModal() {
-    cfgEndpoint.value    = config.endpoint;
-    cfgDeployment.value  = config.deployment || 'gpt-4.1-mini';
-    cfgKey.value         = config.apiKey;
-    cfgSystem.value      = config.systemPrompt;
+    cfgKey.value    = config.apiKey;
+    cfgSystem.value = config.systemPrompt;
     modalOverlay.classList.add('open');
   }
   function closeModal() { modalOverlay.classList.remove('open'); }
@@ -569,16 +565,12 @@
   modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
 
   btnSaveConfig.addEventListener('click', () => {
-    const ep  = cfgEndpoint.value.trim().replace(/\/$/, '');
     const key = cfgKey.value.trim();
-    const dep = cfgDeployment.value.trim() || 'gpt-4.1-mini';
-    if (!ep || !key) {
-      alert('Por favor, preencha o Endpoint e a API Key.');
+    if (!key) {
+      alert('Por favor, insira a API Key.');
       return;
     }
-    config.endpoint     = ep;
     config.apiKey       = key;
-    config.deployment   = dep;
     config.systemPrompt = cfgSystem.value.trim();
     setReady(true);
     closeModal();
@@ -751,14 +743,9 @@
     }
     messages.push(...history);
 
-    // Build endpoint URL
-    // Support both bare base URLs and full paths
-    let url = config.endpoint;
-    // Ensure it ends with /chat/completions
-    if (!url.endsWith('/chat/completions')) {
-      // If it ends with /openai/v1 or similar, just append
-      url = url.replace(/\/$/, '') + '/chat/completions';
-    }
+    // Build endpoint URL with mandatory api-version
+    const base = FIXED_ENDPOINT.replace(/\/$/, '');
+    const url = `${base}/chat/completions?api-version=${API_VERSION}`;
 
     try {
       const resp = await fetch(url, {
@@ -768,7 +755,7 @@
           'api-key': config.apiKey,
         },
         body: JSON.stringify({
-          model: config.deployment,
+          model: FIXED_DEPLOYMENT,
           messages: messages,
           max_tokens: 1500,
           temperature: 0.7,
