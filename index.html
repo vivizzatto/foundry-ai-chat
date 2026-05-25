@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Foundry CHAT · AI Foundry SENAI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Design Tokens ─────────────────────────────────── */
+    :root {
+      --azure:        #0078d4;
+      --azure-dark:   #005a9e;
+      --azure-deep:   #003966;
+      --azure-light:  #deecf9;
+      --azure-pale:   #eff6fc;
+      --accent:       #50e6ff;
+      --accent2:      #ffb900;
+      --bg:           #f3f6fb;
+      --surface:      #ffffff;
+      --surface2:     #f8fafd;
+      --border:       #d0dce8;
+      --text:         #1a2a3a;
+      --text-muted:   #6b7f94;
+      --danger:       #d13438;
+      --radius:       12px;
+      --radius-sm:    8px;
+      --shadow:       0 4px 24px rgba(0,120,212,0.10);
+      --shadow-sm:    0 2px 8px rgba(0,0,0,0.07);
+      --font:         'Sora', sans-serif;
+      --font-mono:    'JetBrains Mono', monospace;
+    }
+
+    /* ── Reset ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      background-image:
+        radial-gradient(ellipse 60% 40% at 80% 0%, rgba(0,120,212,0.07) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 30% at 10% 100%, rgba(80,230,255,0.06) 0%, transparent 60%);
+    }
+
+    /* ── Header ────────────────────────────────────────── */
+    header {
+      background: var(--azure-deep);
+      background-image: linear-gradient(135deg, var(--azure-deep) 0%, var(--azure-dark) 60%, #0063b1 100%);
+      color: #fff;
+      padding: 0 24px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.18);
+    }
+    .header-logo {
+      width: 34px; height: 34px;
+      background: var(--accent);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+      box-shadow: 0 0 12px rgba(80,230,255,0.4);
+    }
+    .header-title { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; }
+    .header-subtitle { font-size: 11.5px; color: rgba(255,255,255,0.6); margin-top: 1px; font-weight: 300; }
+    .header-spacer { flex: 1; }
+    .status-badge {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11.5px; color: rgba(255,255,255,0.75);
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 20px;
+      padding: 4px 12px;
+    }
+    .status-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #4caf50;
+      box-shadow: 0 0 6px #4caf50;
+      transition: background 0.3s;
+    }
+    .status-dot.offline { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+    .status-dot.loading { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    .btn-config {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      border-radius: var(--radius-sm);
+      padding: 6px 14px;
+      font-size: 13px;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: background 0.2s;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .btn-config:hover { background: rgba(255,255,255,0.22); }
+
+    /* ── Config Modal ──────────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,30,60,0.55);
+      backdrop-filter: blur(4px);
+      z-index: 200;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--surface);
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.22);
+      width: 100%; max-width: 480px;
+      padding: 28px;
+      transform: translateY(20px);
+      transition: transform 0.25s;
+      border: 1px solid var(--border);
+    }
+    .modal-overlay.open .modal { transform: translateY(0); }
+    .modal-header { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
+    .modal-header h2 { font-size: 18px; font-weight: 600; color: var(--text); }
+    .modal-close {
+      margin-left: auto;
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 20px; line-height: 1;
+      padding: 4px; border-radius: 6px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .modal-close:hover { background: var(--bg); color: var(--text); }
+
+    .form-group { margin-bottom: 16px; }
+    .form-label { font-size: 12.5px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: block; }
+    .form-input {
+      width: 100%;
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: 13.5px;
+      font-family: var(--font-mono);
+      color: var(--text);
+      transition: border-color 0.2s, box-shadow 0.2s;
+      outline: none;
+    }
+    .form-input:focus { border-color: var(--azure); box-shadow: 0 0 0 3px rgba(0,120,212,0.12); }
+    .form-hint { font-size: 11.5px; color: var(--text-muted); margin-top: 5px; }
+    .form-hint a { color: var(--azure); text-decoration: none; }
+    .form-hint a:hover { text-decoration: underline; }
+
+    .modal-actions { display: flex; gap: 10px; margin-top: 22px; }
+    .btn-primary {
+      flex: 1;
+      background: var(--azure);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 11px;
+      font-size: 14px;
+      font-family: var(--font);
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .btn-primary:hover { background: var(--azure-dark); }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-secondary {
+      background: var(--bg);
+      color: var(--text-muted);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 11px 18px;
+      font-size: 14px;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-secondary:hover { background: var(--azure-pale); color: var(--azure); }
+
+    /* ── Chat Layout ───────────────────────────────────── */
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: 780px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+
+    /* ── Welcome screen ────────────────────────────────── */
+    .welcome {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 40px 20px;
+      gap: 20px;
+    }
+    .welcome-icon {
+      width: 68px; height: 68px;
+      background: linear-gradient(135deg, var(--azure) 0%, var(--accent) 100%);
+      border-radius: 18px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 32px;
+      box-shadow: 0 8px 30px rgba(0,120,212,0.25);
+      animation: float 3s ease-in-out infinite;
+    }
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+    .welcome h1 { font-size: 26px; font-weight: 700; color: var(--text); letter-spacing: -0.5px; }
+    .welcome p { font-size: 15px; color: var(--text-muted); max-width: 380px; line-height: 1.6; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 6px; }
+    .chip {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      padding: 8px 16px;
+      font-size: 13px;
+      color: var(--azure);
+      cursor: pointer;
+      transition: all 0.18s;
+      font-family: var(--font);
+      font-weight: 500;
+    }
+    .chip:hover { background: var(--azure-pale); border-color: var(--azure); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+
+    .config-warning {
+      background: #fff8e1;
+      border: 1.5px solid #ffe082;
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      font-size: 13px;
+      color: #7a5c00;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    /* ── Messages ──────────────────────────────────────── */
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      scroll-behavior: smooth;
+    }
+    .messages::-webkit-scrollbar { width: 5px; }
+    .messages::-webkit-scrollbar-track { background: transparent; }
+    .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+    .msg { display: flex; gap: 10px; align-items: flex-start; animation: msgIn 0.25s ease; }
+    @keyframes msgIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+    .msg.user { flex-direction: row-reverse; }
+
+    .msg-avatar {
+      width: 34px; height: 34px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; flex-shrink: 0;
+    }
+    .msg.assistant .msg-avatar { background: linear-gradient(135deg, var(--azure) 0%, var(--accent) 100%); color: #fff; box-shadow: 0 2px 8px rgba(0,120,212,0.3); }
+    .msg.user .msg-avatar { background: var(--azure-light); color: var(--azure-dark); }
+
+    .msg-bubble {
+      max-width: 72%;
+      padding: 12px 16px;
+      border-radius: 14px;
+      font-size: 14.5px;
+      line-height: 1.65;
+    }
+    .msg.assistant .msg-bubble {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-top-left-radius: 4px;
+      box-shadow: var(--shadow-sm);
+      color: var(--text);
+    }
+    .msg.user .msg-bubble {
+      background: var(--azure);
+      color: #fff;
+      border-top-right-radius: 4px;
+    }
+    .msg-bubble p { margin-bottom: 8px; }
+    .msg-bubble p:last-child { margin-bottom: 0; }
+    .msg-bubble code {
+      background: rgba(0,0,0,0.06);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+    .msg.user .msg-bubble code { background: rgba(255,255,255,0.2); }
+    .msg-bubble pre {
+      background: #1e2d3d;
+      color: #c9d1d9;
+      border-radius: 8px;
+      padding: 12px;
+      overflow-x: auto;
+      margin: 6px 0;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+    }
+    .msg-time { font-size: 10.5px; color: var(--text-muted); margin-top: 4px; }
+    .msg.user .msg-time { text-align: right; }
+
+    /* Typing indicator */
+    .typing-dots span {
+      display: inline-block;
+      width: 7px; height: 7px;
+      background: var(--text-muted);
+      border-radius: 50%;
+      margin: 0 2px;
+      animation: bounce 1.2s infinite;
+    }
+    .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-6px)} }
+
+    /* Error message */
+    .msg-error {
+      background: #fdf0f0;
+      border: 1.5px solid #f9c8c8;
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--danger);
+      display: flex; align-items: center; gap: 8px;
+      margin: 0 8px;
+    }
+
+    /* ── Input Bar ─────────────────────────────────────── */
+    .input-bar {
+      padding: 14px 0 20px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+    .input-wrap {
+      flex: 1;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      align-items: flex-end;
+      padding: 10px 14px;
+      gap: 8px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      box-shadow: var(--shadow-sm);
+    }
+    .input-wrap:focus-within { border-color: var(--azure); box-shadow: 0 0 0 3px rgba(0,120,212,0.12); }
+    textarea {
+      flex: 1;
+      border: none; outline: none; resize: none;
+      font-family: var(--font);
+      font-size: 14.5px;
+      color: var(--text);
+      background: transparent;
+      line-height: 1.5;
+      max-height: 140px;
+      min-height: 22px;
+      overflow-y: auto;
+    }
+    textarea::placeholder { color: var(--text-muted); }
+    .btn-send {
+      width: 38px; height: 38px;
+      background: var(--azure);
+      border: none; border-radius: 9px;
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      flex-shrink: 0;
+    }
+    .btn-send:hover:not(:disabled) { background: var(--azure-dark); }
+    .btn-send:active:not(:disabled) { transform: scale(0.94); }
+    .btn-send:disabled { background: var(--border); cursor: not-allowed; }
+    .btn-send svg { width: 17px; height: 17px; }
+
+    .btn-clear {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 9px;
+      width: 38px; height: 38px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: all 0.18s;
+      flex-shrink: 0;
+    }
+    .btn-clear:hover { border-color: var(--danger); color: var(--danger); background: #fdf0f0; }
+    .btn-clear svg { width: 16px; height: 16px; }
+
+    /* ── Footer ────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-muted);
+      padding-bottom: 10px;
+    }
+    footer a { color: var(--azure); text-decoration: none; }
+
+    /* ── Responsive ────────────────────────────────────── */
+    @media (max-width: 600px) {
+      header { padding: 0 14px; }
+      .header-subtitle { display: none; }
+      main { padding: 0 10px; }
+      .msg-bubble { max-width: 86%; }
+      .modal { margin: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ───────────────────────────────────────── -->
+<header>
+  <div class="header-logo">🤖</div>
+  <div>
+    <div class="header-title">Foundrizin</div>
+    <div class="header-subtitle">Azure AI Foundry · GPT-4.1-mini</div>
+  </div>
+  <div class="header-spacer"></div>
+  <div class="status-badge">
+    <div class="status-dot offline" id="statusDot"></div>
+    <span id="statusText">Não configurado</span>
+  </div>
+  <button class="btn-config" id="btnConfig">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+    Config
+  </button>
+</header>
+
+<!-- ── Config Modal ──────────────────────────────────── -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span style="font-size:22px">⚙️</span>
+      <h2>Configuração da API</h2>
+      <button class="modal-close" id="btnCloseModal">✕</button>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="cfgEndpoint">Endpoint do Azure AI Foundry</label>
+      <input class="form-input" type="url" id="cfgEndpoint"
+        placeholder="https://seu-resource.services.ai.azure.com/openai/v1" />
+      <div class="form-hint">Encontrado em <b>Settings → Keys and Endpoint</b> no portal.</div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="cfgDeployment">Nome do Deployment (modelo)</label>
+      <input class="form-input" type="text" id="cfgDeployment"
+        placeholder="gpt-4.1-mini" value="gpt-4.1-mini" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="cfgKey">API Key</label>
+      <input class="form-input" type="password" id="cfgKey"
+        placeholder="••••••••••••••••••••••••••••••••" />
+      <div class="form-hint">
+        <a href="https://ai.azure.com" target="_blank" rel="noopener">Portal Azure AI Foundry</a>
+        → seu projeto → Settings → Keys and Endpoint → copie a Key 1.
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="cfgSystem">Instruções do sistema (opcional)</label>
+      <textarea class="form-input" id="cfgSystem" rows="4"
+        style="resize:vertical;font-family:var(--font);font-size:13px"
+        placeholder="Ex: Você é um assistente de TI do SENAI, responda sempre em português brasileiro..."></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" id="btnCancelModal">Cancelar</button>
+      <button class="btn-primary" id="btnSaveConfig">💾 Salvar configuração</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Main Chat ─────────────────────────────────────── -->
+<main>
+  <!-- Welcome state -->
+  <div class="welcome" id="welcomeScreen">
+    <div class="welcome-icon">🤖</div>
+    <h1>Olá! Eu sou o Foundrizin</h1>
+    <p>Assistente de IA conectado ao Azure AI Foundry via GPT-4.1-mini. Configure sua API Key para começar.</p>
+
+    <div class="config-warning" id="configWarning">
+      ⚠️ &nbsp;<span>Configure o <b>Endpoint</b> e a <b>API Key</b> clicando em <b>⚙ Config</b> no canto superior direito.</span>
+    </div>
+
+    <div class="chips" id="chipsContainer" style="display:none">
+      <div class="chip" data-msg="O que você pode fazer por mim?">O que você pode fazer?</div>
+      <div class="chip" data-msg="Me explique o que é o Azure AI Foundry.">O que é AI Foundry?</div>
+      <div class="chip" data-msg="Escreva um código Python de exemplo para mim.">Exemplo em Python</div>
+      <div class="chip" data-msg="Me dê 3 dicas de produtividade para devs.">Dicas de produtividade</div>
+    </div>
+  </div>
+
+  <!-- Messages list -->
+  <div class="messages" id="messagesList" style="display:none"></div>
+
+  <!-- Input bar -->
+  <div class="input-bar">
+    <button class="btn-clear" id="btnClear" title="Limpar conversa">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+    </button>
+    <div class="input-wrap">
+      <textarea id="userInput" rows="1" placeholder="Digite sua mensagem…" disabled></textarea>
+    </div>
+    <button class="btn-send" id="btnSend" disabled title="Enviar">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    </button>
+  </div>
+</main>
+
+<footer>
+  Foundrizin · Azure AI Foundry SENAI &nbsp;·&nbsp;
+  <a href="https://ai.azure.com" target="_blank" rel="noopener">Portal AI Foundry</a>
+</footer>
+
+<script>
+  /* ── State ───────────────────────────────────────── */
+  let config = { endpoint: '', deployment: 'gpt-4.1-mini', apiKey: '', systemPrompt: '' };
+  let history = [];
+  let isLoading = false;
+
+  /* ── Elements ────────────────────────────────────── */
+  const modalOverlay    = document.getElementById('modalOverlay');
+  const btnConfig       = document.getElementById('btnConfig');
+  const btnCloseModal   = document.getElementById('btnCloseModal');
+  const btnCancelModal  = document.getElementById('btnCancelModal');
+  const btnSaveConfig   = document.getElementById('btnSaveConfig');
+  const cfgEndpoint     = document.getElementById('cfgEndpoint');
+  const cfgDeployment   = document.getElementById('cfgDeployment');
+  const cfgKey          = document.getElementById('cfgKey');
+  const cfgSystem       = document.getElementById('cfgSystem');
+  const statusDot       = document.getElementById('statusDot');
+  const statusText      = document.getElementById('statusText');
+  const welcomeScreen   = document.getElementById('welcomeScreen');
+  const configWarning   = document.getElementById('configWarning');
+  const chipsContainer  = document.getElementById('chipsContainer');
+  const messagesList    = document.getElementById('messagesList');
+  const userInput       = document.getElementById('userInput');
+  const btnSend         = document.getElementById('btnSend');
+  const btnClear        = document.getElementById('btnClear');
+
+  /* ── Modal ───────────────────────────────────────── */
+  function openModal() {
+    cfgEndpoint.value    = config.endpoint;
+    cfgDeployment.value  = config.deployment || 'gpt-4.1-mini';
+    cfgKey.value         = config.apiKey;
+    cfgSystem.value      = config.systemPrompt;
+    modalOverlay.classList.add('open');
+  }
+  function closeModal() { modalOverlay.classList.remove('open'); }
+
+  btnConfig.addEventListener('click', openModal);
+  btnCloseModal.addEventListener('click', closeModal);
+  btnCancelModal.addEventListener('click', closeModal);
+  modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
+
+  btnSaveConfig.addEventListener('click', () => {
+    const ep  = cfgEndpoint.value.trim().replace(/\/$/, '');
+    const key = cfgKey.value.trim();
+    const dep = cfgDeployment.value.trim() || 'gpt-4.1-mini';
+    if (!ep || !key) {
+      alert('Por favor, preencha o Endpoint e a API Key.');
+      return;
+    }
+    config.endpoint     = ep;
+    config.apiKey       = key;
+    config.deployment   = dep;
+    config.systemPrompt = cfgSystem.value.trim();
+    setReady(true);
+    closeModal();
+  });
+
+  /* ── Status & UI State ───────────────────────────── */
+  function setReady(ready) {
+    if (ready) {
+      statusDot.className = 'status-dot';
+      statusText.textContent = 'Pronto';
+      userInput.disabled = false;
+      btnSend.disabled   = false;
+      configWarning.style.display = 'none';
+      chipsContainer.style.display = 'flex';
+    } else {
+      statusDot.className = 'status-dot offline';
+      statusText.textContent = 'Não configurado';
+      userInput.disabled = true;
+      btnSend.disabled   = true;
+      configWarning.style.display = 'flex';
+      chipsContainer.style.display = 'none';
+    }
+  }
+  function setLoading(loading) {
+    isLoading = loading;
+    btnSend.disabled  = loading;
+    userInput.disabled = loading;
+    statusDot.className = loading ? 'status-dot loading' : 'status-dot';
+    statusText.textContent = loading ? 'Aguardando…' : 'Pronto';
+  }
+
+  /* ── Chips ───────────────────────────────────────── */
+  document.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const msg = chip.dataset.msg;
+      if (msg && !isLoading) sendMessage(msg);
+    });
+  });
+
+  /* ── Input auto-resize ───────────────────────────── */
+  userInput.addEventListener('input', () => {
+    userInput.style.height = 'auto';
+    userInput.style.height = Math.min(userInput.scrollHeight, 140) + 'px';
+  });
+  userInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (!isLoading && !btnSend.disabled) triggerSend();
+    }
+  });
+  btnSend.addEventListener('click', triggerSend);
+
+  function triggerSend() {
+    const text = userInput.value.trim();
+    if (!text || isLoading) return;
+    sendMessage(text);
+    userInput.value = '';
+    userInput.style.height = 'auto';
+  }
+
+  /* ── Clear ───────────────────────────────────────── */
+  btnClear.addEventListener('click', () => {
+    if (!history.length) return;
+    if (confirm('Limpar toda a conversa?')) {
+      history = [];
+      messagesList.innerHTML = '';
+      messagesList.style.display = 'none';
+      welcomeScreen.style.display = 'flex';
+    }
+  });
+
+  /* ── Render message ──────────────────────────────── */
+  function addMessage(role, text) {
+    // Show messages, hide welcome
+    if (welcomeScreen.style.display !== 'none') {
+      welcomeScreen.style.display = 'none';
+      messagesList.style.display  = 'flex';
+    }
+    const now = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const div = document.createElement('div');
+    div.className = `msg ${role}`;
+
+    const avatar = role === 'assistant' ? '🤖' : '👤';
+    const bubbleContent = formatText(text);
+
+    div.innerHTML = `
+      <div class="msg-avatar">${avatar}</div>
+      <div>
+        <div class="msg-bubble">${bubbleContent}</div>
+        <div class="msg-time">${now}</div>
+      </div>
+    `;
+    messagesList.appendChild(div);
+    messagesList.scrollTop = messagesList.scrollHeight;
+    return div;
+  }
+
+  function addTyping() {
+    if (welcomeScreen.style.display !== 'none') {
+      welcomeScreen.style.display = 'none';
+      messagesList.style.display  = 'flex';
+    }
+    const div = document.createElement('div');
+    div.className = 'msg assistant';
+    div.id = 'typingIndicator';
+    div.innerHTML = `
+      <div class="msg-avatar">🤖</div>
+      <div>
+        <div class="msg-bubble">
+          <div class="typing-dots"><span></span><span></span><span></span></div>
+        </div>
+      </div>
+    `;
+    messagesList.appendChild(div);
+    messagesList.scrollTop = messagesList.scrollHeight;
+  }
+  function removeTyping() {
+    const el = document.getElementById('typingIndicator');
+    if (el) el.remove();
+  }
+
+  function addError(msg) {
+    const div = document.createElement('div');
+    div.className = 'msg-error';
+    div.innerHTML = `⚠️ <span>${msg}</span>`;
+    messagesList.appendChild(div);
+    messagesList.scrollTop = messagesList.scrollHeight;
+  }
+
+  /* ── Simple markdown-ish formatter ──────────────── */
+  function formatText(text) {
+    // escape HTML first
+    let t = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    // code blocks
+    t = t.replace(/```[\w]*\n?([\s\S]*?)```/g, (_, code) =>
+      `<pre><code>${code.trim()}</code></pre>`);
+    // inline code
+    t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
+    // bold
+    t = t.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+    // italic
+    t = t.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    // line breaks → paragraphs
+    const paragraphs = t.split(/\n{2,}/);
+    t = paragraphs.map(p => {
+      const lines = p.split('\n').join('<br>');
+      return `<p>${lines}</p>`;
+    }).join('');
+    return t;
+  }
+
+  /* ── Send Message ────────────────────────────────── */
+  async function sendMessage(text) {
+    if (isLoading) return;
+
+    // Add to history & render user bubble
+    history.push({ role: 'user', content: text });
+    addMessage('user', text);
+    setLoading(true);
+    addTyping();
+
+    // Build messages array (with optional system prompt)
+    const messages = [];
+    if (config.systemPrompt) {
+      messages.push({ role: 'system', content: config.systemPrompt });
+    }
+    messages.push(...history);
+
+    // Build endpoint URL
+    // Support both bare base URLs and full paths
+    let url = config.endpoint;
+    // Ensure it ends with /chat/completions
+    if (!url.endsWith('/chat/completions')) {
+      // If it ends with /openai/v1 or similar, just append
+      url = url.replace(/\/$/, '') + '/chat/completions';
+    }
+
+    try {
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': config.apiKey,
+        },
+        body: JSON.stringify({
+          model: config.deployment,
+          messages: messages,
+          max_tokens: 1500,
+          temperature: 0.7,
+          stream: false,
+        }),
+      });
+
+      if (!resp.ok) {
+        let errMsg = `Erro ${resp.status}`;
+        try {
+          const errData = await resp.json();
+          errMsg = errData?.error?.message || errMsg;
+        } catch {}
+        throw new Error(errMsg);
+      }
+
+      const data = await resp.json();
+      const reply = data?.choices?.[0]?.message?.content;
+      if (!reply) throw new Error('Resposta vazia da API.');
+
+      history.push({ role: 'assistant', content: reply });
+      removeTyping();
+      addMessage('assistant', reply);
+
+    } catch (err) {
+      removeTyping();
+      // Remove last user message from history if failed
+      history.pop();
+      addError(err.message || 'Erro desconhecido ao contatar a API.');
+    } finally {
+      setLoading(false);
+    }
+  }
+</script>
+</body>
+</html>
