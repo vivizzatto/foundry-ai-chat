@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Foundry CHAT · AI Foundry SENAI</title>
+  <title>Foundrizin · AI Foundry SENAI</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
@@ -467,10 +467,13 @@
     </div>
 
     <div class="form-group">
-      <label class="form-label" for="cfgSystem">Instruções do sistema (opcional)</label>
-      <textarea class="form-input" id="cfgSystem" rows="4"
-        style="resize:vertical;font-family:var(--font);font-size:13px"
-        placeholder="Ex: Você é um assistente de TI do SENAI, responda sempre em português brasileiro..."></textarea>
+      <label class="form-label" for="cfgApiVersion">Versão da API <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+      <input class="form-input" type="text" id="cfgApiVersion"
+        placeholder="ex: 2024-10-21 ou 2025-04-01-preview" />
+      <div class="form-hint">
+        Deixe em branco se o seu endpoint termina em <code style="background:var(--bg);padding:1px 5px;border-radius:4px;font-size:11px">/openai/v1</code> — a versão nova não precisa.<br>
+        Use <b>2024-10-21</b> (estável) ou <b>2025-04-01-preview</b> para endpoints legados.
+      </div>
     </div>
 
     <div class="modal-actions">
@@ -527,9 +530,8 @@
   // ✏️ ALTERE AQUI o seu endpoint e deployment fixos:
   const FIXED_ENDPOINT   = 'https://ai-foundry-senai-resource.services.ai.azure.com/openai/v1';
   const FIXED_DEPLOYMENT = 'gpt-4.1-mini';
-  const API_VERSION      = '2025-01-01-preview';
 
-  let config = { apiKey: '', systemPrompt: '' };
+  let config = { apiKey: '', apiVersion: '' };
   let history = [];
   let isLoading = false;
 
@@ -540,7 +542,7 @@
   const btnCancelModal  = document.getElementById('btnCancelModal');
   const btnSaveConfig   = document.getElementById('btnSaveConfig');
   const cfgKey          = document.getElementById('cfgKey');
-  const cfgSystem       = document.getElementById('cfgSystem');
+  const cfgApiVersion   = document.getElementById('cfgApiVersion');
   const statusDot       = document.getElementById('statusDot');
   const statusText      = document.getElementById('statusText');
   const welcomeScreen   = document.getElementById('welcomeScreen');
@@ -553,8 +555,8 @@
 
   /* ── Modal ───────────────────────────────────────── */
   function openModal() {
-    cfgKey.value    = config.apiKey;
-    cfgSystem.value = config.systemPrompt;
+    cfgKey.value        = config.apiKey;
+    cfgApiVersion.value = config.apiVersion;
     modalOverlay.classList.add('open');
   }
   function closeModal() { modalOverlay.classList.remove('open'); }
@@ -571,7 +573,7 @@
       return;
     }
     config.apiKey       = key;
-    config.systemPrompt = cfgSystem.value.trim();
+    config.apiVersion   = cfgApiVersion.value.trim();
     setReady(true);
     closeModal();
   });
@@ -738,14 +740,16 @@
 
     // Build messages array (with optional system prompt)
     const messages = [];
-    if (config.systemPrompt) {
-      messages.push({ role: 'system', content: config.systemPrompt });
-    }
     messages.push(...history);
 
-    // Build endpoint URL with mandatory api-version
+    // Build endpoint URL
+    // /openai/v1 endpoints do NOT require api-version (new Azure v1 spec)
+    // Legacy /openai/deployments/... endpoints DO require it
     const base = FIXED_ENDPOINT.replace(/\/$/, '');
-    const url = `${base}/chat/completions?api-version=${API_VERSION}`;
+    const apiVer = config.apiVersion;
+    const url = apiVer
+      ? `${base}/chat/completions?api-version=${encodeURIComponent(apiVer)}`
+      : `${base}/chat/completions`;
 
     try {
       const resp = await fetch(url, {
